@@ -22,7 +22,7 @@ my $txt         = "$descargas/txt";
 my $lda         = "$descargas/listas-de-asistencias";
 
 
-sub MAIN( :$paso ) {
+sub MAIN(:$paso) {
     # FALTA: redefinir USAGE 
 
     my $url-base = 'http://www1.hcdn.gov.ar/sesionesxml/'; 
@@ -52,25 +52,24 @@ sub MAIN( :$paso ) {
 
 # funciones auxiliares
 
-sub extraer-nombre( $archivo ) { return $archivo.split('/')[*-1] } 
-sub crear-ingresar( $dir ) { "$dir".IO.d ?? chdir $dir !! (mkdir $dir; chdir $dir) }
+sub crear-ingresar($dir) { "$dir".IO.d ?? chdir $dir !! (mkdir $dir; chdir $dir) }
 
 
-sub convertir-a-utf8( $directorio, $destino ) {
+sub convertir-a-utf8($directorio, $destino) {
     say "Convirtiendo a utf8";
 
     mkdir $destino unless "$destino".IO.d;
 
     for dir($directorio) -> $archivo {
         unless $archivo ~~ /:i '.' log $/ {
-            my $nombre = extraer-nombre($archivo);
+            my $nombre = $archivo.basename;
             run 'iconv', '-f', 'LATIN1', '-t', 'utf8', "$archivo", '-o', "$destino/$nombre";
         } 
     } 
 }
 
 
-sub descarga-de( $regex, $url ) {
+sub descarga-de($regex, $url) {
     # se usa en la descarga de reuniones y asistencias
     my @datos;
     my $archivo-reuniones = open "$reu-html", :r;
@@ -84,7 +83,7 @@ sub descarga-de( $regex, $url ) {
     close $archivo-reuniones;
 
     for @datos -> $enlace {
-        my $reunión = extraer-nombre($enlace);
+        my $reunión = $enlace.basename;
         my $descarga = run 'wget', '--limit-rate=100k', '-aroa.log', "$enlace"; sleep 2;
         next if $descarga.exitcode == -1;
     }
@@ -93,7 +92,7 @@ sub descarga-de( $regex, $url ) {
 
 # funciones principales 
  
-sub descargar( $url-base ) {
+sub descargar($url-base) {
     say 'Descargando las reuniones...';
 
     crear-ingresar($descargas);
@@ -110,7 +109,7 @@ sub descargar( $url-base ) {
 }
 
 
-sub extraer-reuniones( $url-base ) {
+sub extraer-reuniones($url-base) {
     say "Extrayendo reuniones...";
 
     crear-ingresar($araña);
@@ -128,13 +127,13 @@ sub extraer-texto() {
     crear-ingresar($txt); 
 
     for dir($reuniones) -> $reunión {
-        my $archivo = extraer-nombre($reunión);
+        my $archivo = $reunión.basename;
         run 'pandoc', '-f', 'html', '-t', 'plain', "$reunión", '-o', "$archivo";
     } 
 }
 
 
-sub asistencias( $url-base ) {
+sub asistencias($url-base) {
     say 'Generando datos de asistencias';
 
     crear-ingresar($asistencias);
@@ -146,7 +145,6 @@ sub asistencias( $url-base ) {
 
     crear-ingresar($lda);
     for dir($asis-utf8) -> $archivo {
-        my $nombre = extraer-nombre($archivo); 
         my @personas;
         for "$archivo".IO.lines -> $línea {
             if $línea ~~ / ^'<li>' (.+?) '<' / {
@@ -176,7 +174,6 @@ sub determinar-genero() {
     crear-ingresar($genero);
 
     for dir($lda) -> $archivo {
-        my $nombre = extraer-nombre($archivo);
         my @líneas;
         my @indefinidos;
         for "$archivo".IO.lines -> $línea {
@@ -208,7 +205,6 @@ sub capturar-fechas() {
 
     my @fechas;
     for dir($reuniones) -> $archivo {
-        my $nombre = extraer-nombre($archivo);
         my $reunión = $nombre.split('p=')[1];
         for "$archivo".IO.lines -> $línea {
             if $línea ~~ / subtit '">' (\d**2 '/' \d**2 '/' \d**4) / {
