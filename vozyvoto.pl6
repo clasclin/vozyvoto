@@ -60,10 +60,10 @@ sub convertir-a-utf8($directorio, $destino) {
 
     mkdir $destino unless "$destino".IO.d;
 
+    my $log = /:ir '.' log $/;
     for dir($directorio) -> $archivo {
-        unless $archivo ~~ /:i '.' log $/ {
-            my $nombre = $archivo.basename;
-            run 'iconv', '-f', 'LATIN1', '-t', 'utf8', "$archivo", '-o', "$destino/$nombre";
+        unless $archivo.match($log) {
+            run 'iconv', '-f', 'LATIN1', '-t', 'utf8', "$archivo", '-o', "$destino/$archivo.basename";
         } 
     } 
 }
@@ -71,6 +71,7 @@ sub convertir-a-utf8($directorio, $destino) {
 
 sub descarga-de($regex, $url) {
     # se usa en la descarga de reuniones y asistencias
+
     my @datos;
     my $archivo-reuniones = open "$reu-html", :r;
     for "$archivo-reuniones".IO.lines -> $línea {
@@ -83,7 +84,6 @@ sub descarga-de($regex, $url) {
     close $archivo-reuniones;
 
     for @datos -> $enlace {
-        my $reunión = $enlace.basename;
         my $descarga = run 'wget', '--limit-rate=100k', '-aroa.log', "$enlace"; sleep 2;
         next if $descarga.exitcode == -1;
     }
@@ -102,8 +102,8 @@ sub descargar($url-base) {
 
     my $navegador = Selenium::WebDriver::Chrome.new;
     $navegador.url($url);
-    my $html = $navegador.source();
-    spurt 'reuniones.html', "$html";
+    my $fuente-html = $navegador.source();
+    spurt 'reuniones.html', "$fuente-html";
 
     $navegador.quit();
 }
@@ -114,7 +114,7 @@ sub extraer-reuniones($url-base) {
 
     crear-ingresar($araña);
 
-    my $regex-reuniones = / (reunion '.' asp '?' 'p=' \d**3) ('&amp;r=' \d+) /;
+    my $regex-reuniones = /:r (reunion '.' asp '?' 'p=' \d**3) ('&amp;r=' \d+) /;
     descarga-de($regex-reuniones, $url-base);
 
     convertir-a-utf8($araña, $reuniones);
@@ -138,17 +138,19 @@ sub asistencias($url-base) {
 
     crear-ingresar($asistencias);
 
-    my $regex-asistencias = / (asistencia '.' [asp || php] '?') (.+?) \" /;
+    my $regex-asistencias = /:r (asistencia '.' [asp || php] '?') (.+?) \" /;
     descarga-de($regex-asistencias, $url-base);
 
     convertir-a-utf8($asistencias, $asis-utf8);
 
-    crear-ingresar($lda);
+    crear-ingresar($lda); 
+
+    my $lista = /:ir ^'<li>' (.+?) '<' / 
     for dir($asis-utf8) -> $archivo {
         my @personas;
         for "$archivo".IO.lines -> $línea {
-            if $línea ~~ / ^'<li>' (.+?) '<' / {
-                @personas.push($0.Str);
+            if $línea.match($lista) {
+                @personas.push(~$0);
             }
         }
         my $lda-txt = open "$lda/$nombre", :w;
@@ -174,10 +176,13 @@ sub determinar-genero() {
     crear-ingresar($genero);
 
     for dir($lda) -> $archivo {
+
         my @líneas;
         my @indefinidos;
+        my $comienza-por-nombre = /:r ^\w+ /; 
+
         for "$archivo".IO.lines -> $línea {
-            if $línea ~~ / ^\w+ / {
+            if $línea.match($comienza-por-nombre) {
                 my $nombres = $línea.split(', ')[1];
                 my ($primer-nombre, *@) = $nombres.split(/\s/);
                 given $primer-nombre {
@@ -204,11 +209,13 @@ sub capturar-fechas() {
     crear-ingresar($reuniones);
 
     my @fechas;
+    my $regex-fecha = /:r subtit '">' (\d**2 '/' \d**2 '/' \d**4) /; 
+
     for dir($reuniones) -> $archivo {
         my $reunión = $nombre.split('p=')[1];
         for "$archivo".IO.lines -> $línea {
-            if $línea ~~ / subtit '">' (\d**2 '/' \d**2 '/' \d**4) / {
-                my $fecha = $0.Str;
+            if $línea.match($regex-fecha) {
+                my $fecha = ~$0;
                 @fechas.push("$reunión\t$fecha");
             }
         } 
