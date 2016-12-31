@@ -6,6 +6,7 @@
 use v6;
 use lib 'lib';
 use NombresPropios;
+use Asistencia;
 
 my Str $voz-y-voto  = "$*HOME/voz_y_voto";
 my Str $reuniones   = 'reuniones';
@@ -42,13 +43,16 @@ sub MAIN (Str $archivo, Str $guardar-en = $voz-y-voto) {
         }
     }
 
-    descargar(@reuniones-links, $reuniones)
-    descargar(@asistencia-links, $asistencia);
+    #descargar(@reuniones-links, $reuniones);
+    #descargar(@asistencia-links, $asistencia);
 
     # presentes
 
-    ## tengo que implementar mi propia manera de parsear los presentes
-    ## Gumbo no funciona
+    for dir($asistencia) -> $documento {
+        my $guardar-como = "$presentes/{$documento.basename}";
+        my $match = Asistencia.parse($documento.IO.slurp, :actions(Asistencia-actions.new)).made;
+        spurt $guardar-como, $match<presentes>.join("\n");
+    }
 
     # textos
 
@@ -56,6 +60,8 @@ sub MAIN (Str $archivo, Str $guardar-en = $voz-y-voto) {
     $reuniones-archivos.map(&extraer-texto);
 
     # nombres propios
+
+    ## Falta ver como coordinar el reconocimiento de nombres en cada texto
 
     # funciónes auxiliares
 
@@ -65,7 +71,7 @@ sub MAIN (Str $archivo, Str $guardar-en = $voz-y-voto) {
             my $guardar-como = $enlace.split('/').tail;
             unless $guardar-como.IO.f {
                 my Proc $wget = run 'wget', '-O', '-', "$enlace", :out;
-                my Proc $utf8 = run 'iconv', '-f', 'LATIN1', 't', 'utf8', :in($wget.out), :out;
+                my Proc $utf8 = run 'iconv', '-f', 'LATIN1', '-t', 'utf8', :in($wget.out), :out;
                 spurt "$guardar-como", $utf8.out.lines;
                 sleep 2;
             }

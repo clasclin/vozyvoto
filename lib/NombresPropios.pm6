@@ -1,8 +1,8 @@
-unit module NombresPropios; 
+unit module NombresPropios;
 
 # RNP: Reconocimiento de Nombres Propios
 
-grammar RNP {
+grammar RNP is export {
     token TOP       { ^ <préambulo> <cuerpo> $ }
 
     token préambulo { <líneas>+ <fecha> [<líneas>+ <separador>] ** 2 }
@@ -17,25 +17,14 @@ grammar RNP {
 }
 
 
-class RNP-actions {
-     method TOP ($/) {
-         make {
-             fecha => $<préambulo><fecha>.made,
-             datos => $<cuerpo><datos>>>.made;
-         }
+class RNP-actions is export {
+    method TOP ($/) {
+        make {
+            fecha => $<préambulo><fecha>.made,
+            datos => $<cuerpo><datos>>>.made;
+        }
     }
 
     method fecha($/) { make "$2-$1-$0" }
     method datos($/) { make $/.Str }
 }
-
-## algunas pruebas
-
-# my $documento = "$*HOME/arenero/reunion.asp?p=119&r=1".IO.slurp;
-# my $match = RNP.parse($documento, :actions(RNP-actions.new)).made;
-# say $match<fecha>;
-
-# for dir("$*HOME/Descargas/vozyvoto/txt") -> $documento {
-#     my $match = RNP.parse($documento.IO.slurp, :actions(RNP-actions.new)).made;
-#     say $match<fecha>, ' ', $documento.basename;
-# }
